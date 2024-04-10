@@ -141,33 +141,48 @@ int main(int argc, char const *argv[])
     cout << "Adjacency List:\n";
     g.printGraph();
     g.initialize_visited();
+
+    // sequential dfs 
     cout << "Depth First Search: \n";
     auto start = chrono::high_resolution_clock::now();
     g.dfs(0);
     cout << endl;
     auto end = chrono::high_resolution_clock::now();
-    cout << "Time taken: " << chrono::duration_cast<chrono::microseconds>(end - start).count() << " microseconds" << endl;
+    chrono::duration<double> duration_dfs = end - start;
+    cout << "Time taken: " << duration_dfs.count() << " microseconds" << endl; 
+    
     cout << "Parallel Depth First Search: \n";
     g.initialize_visited();
     start = chrono::high_resolution_clock::now();
     g.parallel_dfs(0);
     cout << endl;
     end = chrono::high_resolution_clock::now();
-    cout << "Time taken: "<< chrono::duration_cast<chrono::microseconds>(end - start).count() << " microseconds" << endl;
+    chrono::duration<double> duration_para_dfs = end - start;
+    cout << "Time taken: " << duration_para_dfs.count() << " microseconds" << endl; 
+    // Calculate speedup for dfs
+    double speedup_dfs = duration_dfs.count() / duration_para_dfs.count();
+    cout << "Speedup (dfs): " << speedup_dfs << endl;
+    
+    // bfs 
     start = chrono::high_resolution_clock::now();
     cout << "Breadth First Search: \n";
     g.initialize_visited();
     g.bfs(0);
     cout << endl;
     end = chrono::high_resolution_clock::now();
-    cout << "Time taken: "<< chrono::duration_cast<chrono::microseconds>(end - start).count() << " microseconds" << endl;
+    chrono::duration<double> duration_bfs =end-start;
+    cout << "BFS Time: " << duration_bfs.count() << " seconds\n";
+  
     start = chrono::high_resolution_clock::now();
     cout << "Parallel Breadth First Search: \n";
     g.initialize_visited();
     g.parallel_bfs(0);
     cout << endl;
     end = chrono::high_resolution_clock::now();
-    cout << "Time taken: " << chrono::duration_cast<chrono::microseconds>(end - start).count() << " microseconds" << endl;
-
+    chrono::duration<double> duration_bfs_para =end-start;
+    cout << "Parallel BFS Time: " << duration_bfs_para.count() << " seconds\n";
+    // Calculate speedup for BFS
+    double speedup_bfs = duration_bfs.count() / duration_bfs_para.count();
+    cout << "Speedup (bfs): " << speedup_bfs << endl;
     return 0;
 }
