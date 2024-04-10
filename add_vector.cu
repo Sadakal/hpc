@@ -1,97 +1,102 @@
-#include<iostream>
-#include<bits/stdc++.h>
-#include<cuda.h>
-#define BLOCK_SIZE 16
+//%%cu
+#include <iostream>
+#include <climits>
+#include <cstdlib>
+#include <chrono>
+#include <omp.h>
 using namespace std;
 
-void fill_array(int *arr,int size){
-    for(int i = 0;i < size; i++){
-        arr[i] = rand() % 100;
+__global__ void add(int* A, int* B, int* C, int size) {
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (tid < size) {
+        C[tid] = A[tid] + B[tid];
     }
 }
 
-void add_cpu(int *arr1, int *arr2, int *result, int size){
-    for(int i = 0;i < size; i++){
-        result[i] = arr1[i] + arr2[i];
+void addS(int* A, int* B, int* C, int size) {
+    for(int i=0;i<size;i++){
+    	C[i] = A[i] + B[i];
+    }
+
+}
+
+
+void initialize(int* vector, int size) {
+    for (int i = 0; i < size; i++) {
+        vector[i] = rand() % 1000;
     }
 }
 
-void print_matrix(int *arr, int size){
-    for(int i = 0; i < size; i++){
-        cout << arr[i] << " ";
+void print(int* vector, int size) {
+    for (int i = 0; i < size; i++) {
+        cout << vector[i] << " ";
     }
     cout << endl;
 }
 
-__global__ void add(int *arr1, int *arr2, int *arr3,int size){
-    int block_id = blockIdx.x * blockDim.x + threadIdx.x;
-    if(block_id < size){
-        arr3[block_id] = arr1[block_id] + arr2[block_id];
-    }
-}
+int main() {
+    int N = 10000;
+    int* A, * B, * C, *D;
 
-int main(){
-    int *arr1_cpu,*arr2_cpu,*result_cpu;
-    int size;
-    cout << "Enter size of vector: ";
-    cin >> size;
+    int vectorSize = N;
+    size_t vectorBytes = vectorSize * sizeof(int);
 
-    arr1_cpu = new int[size];
-    arr2_cpu = new int[size];
-    result_cpu = new int[size];
-
-    fill_array(arr1_cpu,size);
-    cout << "Array 1: ";
-    print_matrix(arr1_cpu,size);
-    fill_array(arr2_cpu,size);
-    cout << "Array 2: ";
-    print_matrix(arr2_cpu,size);
-
-    int *arr1_gpu,*arr2_gpu,*result_gpu;
+    A = new int[vectorSize];
+    B = new int[vectorSize];
+    C = new int[vectorSize];
+    D = new int[vectorSize];
     
-    cudaMallocManaged(&arr1_gpu, size * sizeof(int));
-    cudaMallocManaged(&arr2_gpu, size * sizeof(int));
-    cudaMallocManaged(&result_gpu, size * sizeof(int));
+    initialize(A, vectorSize);
+    initialize(B, vectorSize);
 
-    cudaMemcpy(arr1_gpu,arr1_cpu,size * sizeof(int),cudaMemcpyHostToDevice);
-    cudaMemcpy(arr2_gpu,arr2_cpu,size * sizeof(int),cudaMemcpyHostToDevice);
-    cudaEvent_t start,stop;
-    float elapsedTime;
+    cout << "Vector A: ";
+    print(A, N);
+    cout << "Vector B: ";
+    print(B, N);
     
-    dim3 dimGrid(size + BLOCK_SIZE - 1 / BLOCK_SIZE);
-    dim3 dimBlock(BLOCK_SIZE);
+    auto startSeq = chrono::steady_clock::now();
+    // sequential 
+    addS(A,B,D,N);
+    auto endSeq = chrono::steady_clock::now();
+    chrono::duration<double, micro> fp = endSeq - startSeq;
+    cout << "Sequential Time: " << fp.count() << " microseconds" << endl;
+    
 
-    cudaEventCreate(&start);
-    cudaEventCreate(&stop);
-    cudaEventRecord(start,0);
+    int* X, * Y, * Z;
+    cudaMalloc(&X, vectorBytes);
+    cudaMalloc(&Y, vectorBytes);
+    cudaMalloc(&Z, vectorBytes);
 
-    add<<<dimGrid,dimBlock>>>(arr1_gpu,arr2_gpu,result_gpu,size);
-    cudaEventRecord(stop,0);
-    cudaEventSynchronize(stop);
-    cudaEventElapsedTime(&elapsedTime,start,stop);
-    cudaEventDestroy(start);
-    cudaEventDestroy(stop);
-    cudaMemcpy(result_cpu,result_gpu,size * sizeof(int),cudaMemcpyDeviceToHost);
-    cout << "GPU result:\n";
-    print_matrix(result_cpu,size);
-    cout<<"Elapsed Time = "<<elapsedTime<<" milliseconds" << endl;
-    cudaFree(arr1_gpu);
-    cudaFree(arr2_gpu);
-    cudaFree(result_gpu);
+    cudaMemcpy(X, A, vectorBytes, cudaMemcpyHostToDevice);
+    cudaMemcpy(Y, B, vectorBytes, cudaMemcpyHostToDevice);
+    
+    
+    auto startParallel = chrono::steady_clock::now();
 
-    cudaEventCreate(&start);
-    cudaEventCreate(&stop);
-    cudaEventRecord(start,0);
+    int threadsPerBlock = 256;
+    int blocksPerGrid = (N + threadsPerBlock - 1) / threadsPerBlock;
 
-    add_cpu(arr1_cpu,arr2_cpu,result_cpu,size);
-    cudaEventRecord(stop,0);
-    cudaEventSynchronize(stop);
-    cudaEventElapsedTime(&elapsedTime,start,stop);
-    cudaEventDestroy(start);
-    cudaEventDestroy(stop);
-    cout << "CPU result:\n";
-    print_matrix(result_cpu,size);
-    cout<<"Elapsed Time = "<<elapsedTime<<" milliseconds" << endl;
+    add<<<blocksPerGrid, threadsPerBlock>>>(X, Y, Z, N);
+    
+    cudaMemcpy(C, Z, vectorBytes, cudaMemcpyDeviceToHost);
+    
+    auto endParallel = chrono::steady_clock::now();
+    chrono::duration<double, micro> fp1 = endParallel - startParallel;
+    cout << "Parallel Time: " << fp1.count() << " microseconds" << endl;
+    // cout << "Addition: ";
+    // print(C, N);
+    
+    double SortSpeedup = fp.count() / fp1.count();
+    cout << "Speedup : " << SortSpeedup << endl;
+
+    delete[] A;
+    delete[] B;
+    delete[] C;
+
+    cudaFree(X);
+    cudaFree(Y);
+    cudaFree(Z);
 
     return 0;
 }
