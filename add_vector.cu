@@ -89,6 +89,11 @@ int main() {
     
     double SortSpeedup = fp.count() / fp1.count();
     cout << "Speedup : " << SortSpeedup << endl;
+    for(int i =0;i<N;i++){
+        if(C[i]!=D[i]){
+            cout<<"Wrong at "<<i<<endl;
+        }
+    }
 
     delete[] A;
     delete[] B;
