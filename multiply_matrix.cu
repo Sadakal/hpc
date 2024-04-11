@@ -99,6 +99,7 @@ int main(){
     dim3 dimBlock(BLOCK_SIZE,BLOCK_SIZE);
 
     float gpu_elapsed_time;
+    float cpu_elapsed_time;
     cudaEvent_t gpu_start,gpu_stop;
 
     cudaEventCreate(&gpu_start);
@@ -114,21 +115,25 @@ int main(){
     cudaMemcpy(C,result,C_size*sizeof(int),cudaMemcpyDeviceToHost);
     cout << "GPU result:\n";
     print_matrix(C,C_rows,C_cols);
-    cout<<"GPU Elapsed time is: "<<gpu_elapsed_time<<" milliseconds"<<endl;
 
+    // Sequential
     cudaEventCreate(&gpu_start);
     cudaEventCreate(&gpu_stop);
     cudaEventRecord(gpu_start);
     matrix_multiplication_cpu(A,B,C,A_cols,C_rows,C_cols);
     cudaEventRecord(gpu_stop);
     cudaEventSynchronize(gpu_stop);
-    cudaEventElapsedTime(&gpu_elapsed_time, gpu_start, gpu_stop);
+    cudaEventElapsedTime(&cpu_elapsed_time, gpu_start, gpu_stop);
     cudaEventDestroy(gpu_start);
     cudaEventDestroy(gpu_stop);
 
     cout << "CPU result:\n";
     print_matrix(C,C_rows,C_cols);
-    cout<<"CPU Elapsed time is: "<<gpu_elapsed_time<<" milliseconds"<<endl;
+    
+    cout<<"GPU Elapsed time is: "<<gpu_elapsed_time<<" milliseconds"<<endl;
+    cout<<"CPU Elapsed time is: "<<cpu_elapsed_time<<" milliseconds"<<endl;
+
+    cout<<"Speedup " <<cpu_elapsed_time/gpu_elapsed_time<<endl;
 
     cudaFree(m1);
     cudaFree(m2);
