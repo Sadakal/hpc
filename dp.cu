@@ -1,6 +1,7 @@
 #include <iostream>
 #include <cmath>
 #include <cuda_runtime.h>
+#include <chrono>
 
 // Define the number of subproblems and their size
 #define NUM_SUBPROBLEMS 1000
@@ -39,17 +40,43 @@ int main() {
     int blockSize = 256;
     int numBlocks = (NUM_SUBPROBLEMS + blockSize - 1) / blockSize;
 
+    // Measure execution time for the parallel version
+    auto startPar = std::chrono::high_resolution_clock::now();
+
     // Launch the kernel to solve subproblems in parallel
     solveSubproblem<<<numBlocks, blockSize>>>(d_inputData, d_outputData);
+
+    // Synchronize CUDA threads
+    cudaDeviceSynchronize();
+
+    auto endPar = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> durationPar = endPar - startPar;
 
     // Copy results from device to host
     float* outputData = new float[NUM_SUBPROBLEMS];
     cudaMemcpy(outputData, d_outputData, NUM_SUBPROBLEMS * sizeof(float), cudaMemcpyDeviceToHost);
 
-    // Print or further process the results
+    // Measure execution time for the sequential version
+    auto startSeq = std::chrono::high_resolution_clock::now();
+
+    // Sequential code (same as kernel code for simplicity)
     for (int i = 0; i < NUM_SUBPROBLEMS; ++i) {
-        std::cout << "Result for subproblem " << i << ": " << outputData[i] << std::endl;
+        float sum = 0.0f;
+        for (int j = 0; j < SUBPROBLEM_SIZE; ++j) {
+            sum += inputData[i * SUBPROBLEM_SIZE + j];
+        }
+        outputData[i] = sum;
     }
+
+    auto endSeq = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> durationSeq = endSeq - startSeq;
+
+    // Calculate speedup
+    double speedup = durationSeq.count() / durationPar.count();
+
+    std::cout << "Parallel Execution Time: " << durationPar.count() << " seconds" << std::endl;
+    std::cout << "Sequential Execution Time: " << durationSeq.count() << " seconds" << std::endl;
+    std::cout << "Speedup: " << speedup << std::endl;
 
     // Free allocated memory
     delete[] inputData;
