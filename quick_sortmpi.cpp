@@ -69,6 +69,9 @@ int main(int argc, char** argv) {
         local_array[i] = rand() % N;
     }
 
+    // Measure the start time
+    auto start_time = chrono::high_resolution_clock::now();
+
     // Perform Quicksort in parallel using OpenMP
     #pragma omp parallel
     {
@@ -86,17 +89,38 @@ int main(int argc, char** argv) {
         }
     }
 
-    // Measure execution time using chrono
+    // Measure the end time
+    auto end_time = chrono::high_resolution_clock::now();
+
+    // Calculate the execution time
+    chrono::duration<double> elapsed = end_time - start_time;
+    double parallel_execution_time = elapsed.count();
+
+    // Calculate the serial execution time (for comparison)
+    vector<int> serial_array(N);
     if (world_rank == 0) {
-        auto start_time = chrono::high_resolution_clock::now();
+        srand(time(NULL)); // Reset the seed for fair comparison
+        for (int i = 0; i < N; i++) {
+            serial_array[i] = rand() % N;
+        }
+        start_time = chrono::high_resolution_clock::now();
+        sort(serial_array.begin(), serial_array.end());
+        end_time = chrono::high_resolution_clock::now();
+        elapsed = end_time - start_time;
+    }
+    double serial_execution_time = elapsed.count();
 
-        // Do something with the sorted merged array
+    // Calculate speedup
+    double speedup = serial_execution_time / parallel_execution_time;
 
-        auto end_time = chrono::high_resolution_clock::now();
-        chrono::duration<double> elapsed = end_time - start_time;
-        cout << "Time taken: " << elapsed.count() << " seconds" << endl;
+    // Output the results
+    if (world_rank == 0) {
+        cout << "Serial Execution Time: " << serial_execution_time << " seconds" << endl;
+        cout << "Parallel Execution Time: " << parallel_execution_time << " seconds" << endl;
+        cout << "Speedup: " << speedup << "x" << endl;
     }
 
     MPI_Finalize();
     return 0;
 }
+
